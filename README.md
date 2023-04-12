@@ -11,7 +11,9 @@
 ```
 
 3. Run the command `Update-Database` to migrate EF to your SQL server
-4. Run command `dotnet run` and the API will run at http://localhost:44374/api
+4. Run command `dotnet run` to start the project
+
+the API will now run at `http://localhost:44374/swagger/index.html`
 
 
 ## Endpoints
