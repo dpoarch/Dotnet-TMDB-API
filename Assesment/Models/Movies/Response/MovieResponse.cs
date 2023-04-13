@@ -1,6 +1,6 @@
-﻿namespace Assesment.Models.Movies
+﻿namespace Assesment.Models.Movies.Response
 {
-    public class Result
+    public class MovieResponse
     {
         public bool adult { get; set; }
         public string backdrop_path { get; set; }

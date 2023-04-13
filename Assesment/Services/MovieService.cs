@@ -2,6 +2,9 @@
 using Assesment.Interfaces;
 using Assesment.Models;
 using Assesment.Models.Movies;
+using Assesment.Models.Movies.Requests;
+using Assesment.Models.Movies.Response;
+using Assesment.Models.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
@@ -23,48 +26,72 @@ namespace Assesment.Services
             this.abstractDbContext = abstractDbContext;
         }
 
-        public async Task<IEnumerable<Result>> SearchMovies(string userId, string search)
+        public async Task<TransactionResponse<ResultResponse>> SearchMovies(MovieRequest request)
         {
             var baseAddress = new Uri("http://api.themoviedb.org/3/");
             var token = configuration.GetValue<string>("Token:tmdbKey");
-            var searchQuery = string.Format("search/movie?api_key={0}&query={1}", token, search);
-            var history = abstractDbContext.History.FirstOrDefaultAsync(x => x.UserId == userId && x.Query == string.Format("{0}{1}", baseAddress.ToString(), searchQuery));
-            RootObject model;
-            if(history.Result == null)
+            var searchQuery = string.Format("search/movie?api_key={0}&query={1}", token, request.search);
+            var users = abstractDbContext.Users.FirstOrDefaultAsync(x => x.Id == request.userId);
+            Movie movie;
+            Person person;
+            if (users.Result != null)
             {
-                System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
-
-               
-                string responseData = "";
-                using (var httpClient = new HttpClient { BaseAddress = baseAddress })
+                var history = abstractDbContext.History.FirstOrDefault(x => x.UserId == request.userId && x.Query == request.search);
+                if (history == null)
                 {
+                    System.Net.ServicePointManager.ServerCertificateValidationCallback = delegate { return true; };
+
+
+                    string responseData = "";
+                    string personData = "";
+                    var httpClient = new HttpClient { BaseAddress = baseAddress };
                     httpClient.DefaultRequestHeaders.TryAddWithoutValidation("accept", "application/json");
+                    var response = await httpClient.GetAsync(searchQuery);
+                    responseData = await response.Content.ReadAsStringAsync();
+                    movie = JsonConvert.DeserializeObject<Movie>(responseData);
 
-                    using (var response = await httpClient.GetAsync(searchQuery))
-                    {
-                        responseData = await response.Content.ReadAsStringAsync();
+                    //search persons
+                    var newHttpClient = new HttpClient { BaseAddress = baseAddress };
+                    newHttpClient.DefaultRequestHeaders.TryAddWithoutValidation("accept", "application/json");
+                    searchQuery = string.Format("search/person?api_key={0}&query={1}", token, request.search);
+                    var personResponse = await newHttpClient.GetAsync(searchQuery);
+                    personData = await personResponse.Content.ReadAsStringAsync();
+                    person = JsonConvert.DeserializeObject<Person>(personData);
 
-                        model = JsonConvert.DeserializeObject<RootObject>(responseData);
-                    }
+                    var map = new History();
+                    map.UserId = request.userId;
+                    map.Query = request.search;
+                    map.MovieData = responseData;
+                    map.PersonData = personData;
+                    map.DateCreated = DateTime.Now;
+
+                    await abstractDbContext.History.AddAsync(map);
+                    await abstractDbContext.SaveChangesAsync();
+                }
+                else
+                {
+                    movie = JsonConvert.DeserializeObject<Movie>(history.MovieData);
+                    person = JsonConvert.DeserializeObject<Person>(history.PersonData);
                 }
 
-                var map = new History();
-                map.UserId = userId;
-                map.Query = string.Format("{0}{1}", baseAddress.ToString(), searchQuery);
-                map.MovieData = responseData;
-                map.DateCreated = DateTime.Now;
+                var resultResponse = new ResultResponse()
+                {
+                    movies = movie.results,
+                    persons = person.results
+                };
 
-                await abstractDbContext.History.AddAsync(map);
-                await abstractDbContext.SaveChangesAsync();
+                return new TransactionResponse<ResultResponse>
+                {
+                    Response = resultResponse
+                };
             }
-            else
+
+            return new TransactionResponse<ResultResponse>()
             {
-                model = JsonConvert.DeserializeObject<RootObject>(history.Result.MovieData);
-            }
+                IsSuccess = false,
+                Message = "User does not exist!"
+            };
 
-            
-
-            return model.results;
         }
     }
 }

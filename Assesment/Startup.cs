@@ -65,6 +65,7 @@ namespace Assesment
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "1.0");
             });
 
+            AbstractDbSeeder.Seed(app); //Seed Data to users table
         }
     }
 }

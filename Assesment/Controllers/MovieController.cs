@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Assesment.Models.Movies;
 using Assesment.Interfaces;
+using Assesment.Models.Movies.Requests;
+using Assesment.Models.Movies.Response;
 
 namespace Assesment.Controllers
 {
@@ -21,10 +23,15 @@ namespace Assesment.Controllers
             this.movieService = _movieService;
         }
        
-        [HttpGet("{userId}/{search}")]
-        public async Task<ActionResult<Result>> Index(string userId, string search)
+        [HttpPost("Search")]
+        public async Task<ActionResult<ResultResponse>> Index([FromBody] MovieRequest request)
         {
-            return Ok(await movieService.SearchMovies(userId, search));
+            var response = await movieService.SearchMovies(request);
+            if (!response.IsSuccess)
+            {
+                return BadRequest(response.Message);
+            }
+            return Ok(response.Response);
         }
     }
 }
