@@ -19,6 +19,15 @@ the API will now run at `http://localhost:44374/swagger/index.html`
 ## Endpoints
 
 ```
-[GET] https://localhost:44374/api/Movie/{userId}/{search}
+[POST] https://localhost:44374/api/Movie/Search
+
 ```
 
+### Request Body
+
+```json
+{
+    "userId": 1,
+    "search": "superman"
+}
+```
